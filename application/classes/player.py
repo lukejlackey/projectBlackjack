@@ -6,13 +6,16 @@ class Player:
     ALL_PLAYERS = []
     MAX_SCORE = 21
     ACTIONS = [0, 1]
-    ACTION_SPACE = len(ACTIONS)
-    STATES = [n for n in range(2,21)]
+    ACTION_SPACE = len( ACTIONS )
+    STATE_MIN = 2
+    STATE_MAX = 22
+    STATES = [n for n in range( STATE_MIN, STATE_MIN )]
     STATE_SPACE = len( STATES )
     EPISODES = 5000
     NEW_Q_TABLE = np.zeros( ( STATE_SPACE, ACTION_SPACE ) )
     WIN_REWARD = 25
     LOSS_PENALTY = -25
+    EPSILON_DECAY = .001
     SKILL_LEVELS = {
         '1' : {
             'epsilon' : 0.1,
@@ -61,17 +64,16 @@ class Player:
         },
     }
     USER_STAT_CATEGORIES = ['wins', 'losses', 'blackjacks', 'busts']
-    GAME_INIT_CATEGORIES = ['out', 'state', 'action', 'next_state', 'reward']
+    GAME_INIT_CATEGORIES = ['out', 'state', 'action', 'counter', 'next_state', 'result', 'reward']
 
-    def __init__( self, isUser=False, name=None, avatar=0, q_table=NEW_Q_TABLE , skill_lvl=0, rewards=0, user_stats=False ):
+    def __init__( self, isUser=False, name=None, avatar=0, q_table=NEW_Q_TABLE , skill_lvl=random.randint( 1, 9 ), rewards=0, user_stats=False ):
         self.isUser = isUser
         self.name = name
         self.avatar = avatar
-        self.q_table = q_table
-        if skill_lvl and not isUser:
-            self.skill_lvl = skill_lvl
-            self.rewards = rewards
-            self.setLearnParams()
+        self.Q = q_table
+        self.skill_lvl = skill_lvl
+        self.rewards = rewards
+        self.setLearnParams()
         self.setStats( user_stats )
 
     def setLearnParams( self ):
@@ -94,23 +96,61 @@ class Player:
             setattr( self, c, 0 )
 
     def updateScore( self ):
+        self.state = self.counter - self.STATE_MIN
         self.counter = sum([card.value for card in self.cards])
         if self.counter > 21:
+            self.busts += 1
             self.out = True
+            self.result = 1
+            self.next_state = self.STATE_MAX
             return 1
+        elif self.counter == 21:
+            self.blackjacks += 1
+        self.next_state = self.counter - self.STATE_MIN
         return 0
 
     def updateSelf( self, action=None, rslt=None ):
-        if action is 0:
-            
-            return
-        elif action is 1:
-            return
-        elif rslt is 0:
-            return
-        elif rslt is 1:
-            return
-        return self.updateScore()
+        output = self.updateScore()
+        if action is not None:
+            self.action = action
+            self.learn()
+        if rslt is not None:
+            self.result = rslt
+            self.learn()
+        self.state = self.next_state
+        return output
+
+    def giveReward( self ):
+        if self.result is 0:
+            self.reward = self.next_state
+        elif self.result is 1:
+            self.result = self.LOSS_PENALTY
+            self.loses += 1
+            self.wl_ratio = self.wins / self.losses
+        elif self.result is 2:
+            self.result = self.WIN_REWARD
+            self.wins += 1
+            self.wl_ratio = self.wins / self.losses if self.losses else 1
+
+    def learn( self ):
+        self.giveReward()
+        self.Q[self.state, self.action] = self.Q[self.state, self.action] + self.l_rate * (self.reward + self.gamma * np.max(self.Q[self.next_state, :]) - self.Q[self.state, self.action])
+        self.epsilon -= self.EPSILON_DECAY
+        self.reward = 0
+
+    def move( self, user_move=None ):
+        if user_move is None:
+            if np.random.uniform( 0, 1 ) < self.epsilon:
+                action = random.choice( self.ACTIONS )
+            else:
+                action = np.argmax( self.Q[self.state, :] )
+        else:
+            action = user_move
+        return action
+
+
+
+
 
     class PlayerAI():
         

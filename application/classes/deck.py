@@ -1,4 +1,4 @@
-import classes.card as card
+import application.classes.card as card
 
 class Deck:
 

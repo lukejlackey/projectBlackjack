@@ -6,7 +6,7 @@ class Game:
 
     STARTING_HAND = 2
 
-    def __init__( self, num_of_players, training_player=False ):
+    def __init__( self, num_of_players=random.randint(2,9), training_player=False ):
         self.num_of_players = num_of_players
         self.training_player = training_player
         self.deck = Deck()
@@ -55,6 +55,6 @@ class Game:
         self.winners = [player for player in possible_winners if player.count == winning_score]
         for player in self.players:
             if player not in self.winners:
-                player.updateSelf( rslt=0 )
-            elif player in self.winners:
                 player.updateSelf( rslt=1 )
+            elif player in self.winners:
+                player.updateSelf( rslt=2 )
