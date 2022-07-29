@@ -1,6 +1,6 @@
 from application import app
-import application.controllers
+from application.controllers import user_controller, player_controller, game_controller
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='127.0.0.1', port=5000, debug=True)
  
