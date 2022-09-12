@@ -12,12 +12,13 @@ def playGame(user_id):
         resp = json.loads(request.data.decode( 'UTF-8' ))
         active_games[user_id] = Game(user_player, num_of_players=int(resp['num_of_players'])+1)
     game = active_games[user_id]
-    if game.stage is 0:
+    if game.stage == 0:
         return jsonify( game.showPlayers() ), 201
-    elif game.stage is 1:
+    elif game.stage == 1:
         return jsonify( game.startGame() ), 200
-    elif game.stage is 2:
+    elif game.stage == 2:
         resp = json.loads(request.data.decode( 'UTF-8' ))
         move = resp['move']
-        print(move)
         return jsonify( game.runRound( move ) ), 201
+    elif game.stage == 3:
+        return jsonify( game.gameOver() ), 200

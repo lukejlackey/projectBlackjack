@@ -36,39 +36,42 @@ class Game:
         self.stage += 1
         self.turn = 0
         self.players_out = 0
-        rv = self.dealCards( self.players*self.STARTING_HAND )
+        rv = self.dealCards( self.players*self.STARTING_HAND, initDeal=True )
         print(rv)
         return rv
 
-    def dealCards( self, target ):
+    def dealCards( self, target, initDeal=False ):
         for player in target:
             newCard = self.deck.cards.pop( 0 )
             player.cards.append( newCard )
             player.updateSelf()
         cards = {}
         for player in self.players:
-            cards[str(player.seat)] = [c.info for c in player.cards[1:]] if player != self.pl1 else [c.info for c in player.cards]
+            cards[str(player.seat)] = [c.info for c in player.cards[1:]] if player != self.pl1 and initDeal else [c.info for c in player.cards]
         return cards
 
     def runRound( self, pl1_move=False ):
         cards = {'game_over': False}
+        self.turn = 0
         while self.turn < len(self.players):
-            print("turn " + str(self.turn))
-            if not self.players[self.turn].out:
+            current_player = self.players[self.turn]
+            print("turn " + str(self.turn + 1))
+            print(current_player.out)
+            if not current_player.out:
                 if self.turn + 1 == self.pl1.seat:
-                    card = self.takeTurn(self.players[self.turn], pl1_move)
+                    print("took p1 turn")
+                    card = self.takeTurn(current_player, pl1_move)
                 else:
-                    card = self.takeTurn(self.players[self.turn])
+                    card = self.takeTurn(current_player)
                 if card:
                     cards[str(self.turn + 1)] = card
             self.turn = self.turn + 1
         if len(cards.keys()) == 1:
             cards['game_over'] = True
-        print(cards)
+            self.stage += 1
         return cards
 
     def takeTurn( self, plr, move=None ):
-        print(self.turn)
         move = move if move is not None else plr.move()
         if move == 0:
             self.dealCards( [plr] )
@@ -77,6 +80,7 @@ class Game:
             plr.out = True
             card = False
         self.players_out += plr.updateSelf( action=move )
+        print(plr.seat, move)
         return card
 
     def gameOver(self):
@@ -86,9 +90,12 @@ class Game:
         else:
             winning_score = None
         self.winners = [player for player in possible_winners if player.counter == winning_score]
-        # print(f'Winning Score: {winning_score} // Winners: {[w.name for w in self.winners]} // TS: {self.training_player.counter}')
+        game_data = {'winning_score' : winning_score}
         for player in self.players:
             if player not in self.winners:
                 player.updateSelf( rslt=1 )
+                game_data[str(player.seat)] = 0
             elif player in self.winners:
                 player.updateSelf( rslt=3 )
+                game_data[str(player.seat)] = 1
+        return game_data

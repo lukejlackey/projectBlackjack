@@ -117,12 +117,12 @@ class Player:
 
     @staticmethod
     def saveQTable( plr, plr_id ):
-        qpath = r"C:\Users\lukej\OneDrive\Desktop\Coding\CodingDojo\projects\projectBlackjack\q_tables\Q" + str(plr_id)
+        qpath = r"C:\Users\gnome\OneDrive\Desktop\pythonProject1\server\projectBlackjack\q_tables\Q" + str(plr_id)
         q = np.save(qpath, plr.Q)
 
     @staticmethod
     def getQTable( plr_id ):
-        qpath = r"C:\Users\lukej\OneDrive\Desktop\Coding\CodingDojo\projects\projectBlackjack\q_tables\Q" + str(plr_id) + '.npy'
+        qpath = r"C:\Users\gnome\OneDrive\Desktop\pythonProject1\server\projectBlackjack\q_tables\Q" + str(plr_id) + '.npy'
         q = np.load(qpath)
         return q
 
