@@ -9,8 +9,10 @@ for i in range(10):
 
 class Game:
 
+    # Number of cards dealt to players at game start
     STARTING_HAND = 2
 
+    #Constructor
     def __init__( self, pl1, num_of_players=random.randint(2,9), player_pool=active_players):
         self.num_of_players = num_of_players
         self.pl1 = pl1
@@ -20,6 +22,7 @@ class Game:
         random.shuffle( self.deck.cards )
         self.addPlayers()
 
+    # Add set number of players to game
     def addPlayers( self ):
         self.players = []
         self.players.append( self.pl1 )
@@ -28,10 +31,12 @@ class Game:
         for i in range( len(self.players) ) :
             self.players[i].joinGame( seat=i+1 )
 
+    # Returns info about all players in game
     def showPlayers( self ):
         self.stage += 1
         return {'players' : [player.display_values for player in self.players]}
 
+    # Begin 1st phase of game
     def startGame( self ):
         self.stage += 1
         self.turn = 0
@@ -40,6 +45,7 @@ class Game:
         print(rv)
         return rv
 
+    # Deals 2 cards to each player on 1st deal, then 1 card on any subsequent deal
     def dealCards( self, target, initDeal=False ):
         for player in target:
             newCard = self.deck.cards.pop( 0 )
@@ -50,6 +56,7 @@ class Game:
             cards[str(player.seat)] = [c.info for c in player.cards[1:]] if player != self.pl1 and initDeal else [c.info for c in player.cards]
         return cards
 
+    # Forces each active player to make their move
     def runRound( self, pl1_move=False ):
         cards = {'game_over': False}
         self.turn = 0
@@ -71,6 +78,7 @@ class Game:
             self.stage += 1
         return cards
 
+    # Receives player move (Hit = 0 / Stand = 1), dealing a card if their move is 0, or setting the player's 'out' status to true if move is 1 or player busts 
     def takeTurn( self, plr, move=None ):
         move = move if move is not None else plr.move()
         if move == 0:
@@ -83,6 +91,7 @@ class Game:
         print(plr.seat, move)
         return card
 
+    # Determines winners/losers
     def gameOver(self):
         possible_winners = [player for player in self.players if player.counter <= Player.MAX_SCORE]
         if possible_winners:

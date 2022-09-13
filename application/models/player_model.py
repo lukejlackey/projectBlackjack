@@ -7,31 +7,39 @@ import names
 
 class Player:
 
+    # MySQL
     TABLE_NAME = 'players'
     WIN_TABLE = 'games_have_winners'
     LOSS_TABLE = 'games_have_losers'
     BLACKJACK_TABLE = 'games_have_blackjacks'
     BUST_TABLE = 'games_have_busts'
     Q_SQL_TABLE = 'q_tables'
+    
+    #Player attributes
     ATTR_TAGS = ['name', 'avatar', 'skill_lvl', 'user_id']
     DISPLAY_TAGS = ['seat', 'user_id', 'name', 'avatar', 'skill_lvl', 'wins', 'losses', 'blackjacks', 'busts', 'wl_ratio']
-    MAX_SCORE = 21
+    
+    #On new game reset
+    GAME_INIT_CATEGORIES = ['out', 'state', 'action', 'counter', 'next_state', 'result', 'reward']
+    
+    # A.I. Actions
     ACTIONS = [0, 1]
     ACTION_SPACE = len( ACTIONS )
+    
+    #A.I. States
+    MAX_SCORE = 21
     STATE_MIN = 2
-    STATE_MAX = 22
+    STATE_MAX = MAX_SCORE + 1
     STATE_ADJUSTMENT = STATE_MIN + 1
     OVER_STATE = STATE_MAX - STATE_ADJUSTMENT
     STATES = list(range( 0, STATE_MAX - 1))
     STATE_SPACE = len( STATES )
+    
+    #A.I. Agent/Training params
     EPISODES = 1000
     EPSILON = .99
     EPSILON_DECAY = .0005
     NEW_Q_TABLE = np.zeros( ( STATE_SPACE, ACTION_SPACE ) )
-    WIN_REWARD = 25
-    BLACKJACK_REWARD = 30
-    LOSS_PENALTY = -25
-    BUST_PENALTY = -30
     SKILL_LEVELS = {
         '1' : {
             'l_rate' : 0.99,
@@ -70,7 +78,12 @@ class Player:
             'gamma' : 0.98
         },
     }
-    GAME_INIT_CATEGORIES = ['out', 'state', 'action', 'counter', 'next_state', 'result', 'reward']
+    
+    # A.I. Rewards/Penalties
+    WIN_REWARD = 25
+    BLACKJACK_REWARD = 30
+    LOSS_PENALTY = -25
+    BUST_PENALTY = -30
     RESULT_CODES = {
         'losses' : 1,
         'busts' : 2,
@@ -84,6 +97,7 @@ class Player:
         '4' : BLACKJACK_REWARD
     }
 
+    #Constructor
     def __init__( self, p_id=0, user_id=0, name=False, avatar=0, q_table=deepcopy(NEW_Q_TABLE) , skill_lvl=False, wins=0, losses=0, busts=0, blackjacks=0):
         self.p_id = p_id
         self.user_id = user_id
@@ -96,7 +110,87 @@ class Player:
         self.seat = 0
         self.setLearnParams()
         self.updateRecord()
-    
+
+    # Set A.I. learning parameters according to skill level
+    def setLearnParams( self ):
+        for ( k, v ) in self.SKILL_LEVELS[str( self.skill_lvl )].items():
+            setattr( self, k, v )
+        self.episodes = self.EPISODES * self.skill_lvl
+        self.epsilon = self.EPSILON
+        self.rewards = []
+
+    # Update record after game
+    def updateRecord( self ):
+        for (k, v) in self.RESULT_CODES.items():
+            setattr(self, k, self.record.count(v))
+        self.wl_ratio = (self.wins + self.blackjacks) / (self.losses + self.busts) if (self.losses + self.busts) else 1
+        self.games_played = len(self.record)
+        for tag in self.DISPLAY_TAGS:
+            self.display_values[tag] = getattr(self, tag)
+
+    # Join new game
+    def joinGame( self, seat ):
+        self.seat = seat
+        self.cards = []
+        for c in self.GAME_INIT_CATEGORIES:
+            setattr( self, c, 0 )
+        self.updateRecord()
+
+    # Allow A.I. to make move if not controlled by player
+    def move( self, user_move=None ):
+        if user_move is None:
+            if np.random.uniform( 0, 1 ) < self.epsilon:
+                action = random.choice( self.ACTIONS )
+            else:
+                action = np.argmax( self.Q[self.state, :] )
+        else:
+            action = user_move
+        return action
+
+    # Update score after card is dealt
+    def updateScore( self ):
+        self.state = self.counter - self.STATE_ADJUSTMENT if self.counter - self.STATE_ADJUSTMENT < self.OVER_STATE else self.OVER_STATE
+        self.counter = sum([card.point_val for card in self.cards])
+        if self.counter > self.MAX_SCORE:
+            self.out = True
+            self.result = 2
+            self.next_state = self.OVER_STATE
+            return 1
+        elif self.counter == self.MAX_SCORE - self.STATE_ADJUSTMENT:
+            self.result = 4
+        self.next_state = self.counter - self.STATE_MIN
+        return 0 if not self.out else 1
+
+    # Update A.I. state/action/reward values
+    def updateSelf( self, action=None, rslt=None ):
+        output = self.updateScore()
+        if action is not None:
+            self.action = action
+            self.learn()
+        if rslt is not None:
+            self.result = rslt if self.result is 0 else self.result
+            self.learn()
+            self.record.append( self.result )
+            self.updateRecord()
+        self.state = self.next_state
+        return output
+
+    # Provide reward value based on state
+    def giveReward( self ):
+        if self.result is 0:
+            self.reward = self.next_state
+        else:
+            self.reward = self.RESULT_REWARDS[str(self.result)]
+        self.rewards.append( self.reward )
+
+    # Train A.I. with basic RL model
+    def learn( self ):
+        self.giveReward()
+        self.Q[self.state, self.action] = self.Q[self.state, self.action] + self.l_rate * (self.reward + self.gamma * np.max(self.Q[self.next_state, :]) - self.Q[self.state, self.action])
+        self.epsilon -= self.EPSILON_DECAY
+        self.reward = 0
+
+    #Create new player
     @classmethod
     def createPlayer( cls, name, user_id=0 ):
         new_player = cls( name=name, user_id=1 if user_id else user_id)
@@ -115,17 +209,7 @@ class Player:
         cls.saveQTable( new_player, rslt)
         return rslt
 
-    @staticmethod
-    def saveQTable( plr, plr_id ):
-        qpath = r"C:\Users\gnome\OneDrive\Desktop\pythonProject1\server\projectBlackjack\q_tables\Q" + str(plr_id)
-        q = np.save(qpath, plr.Q)
-
-    @staticmethod
-    def getQTable( plr_id ):
-        qpath = r"C:\Users\gnome\OneDrive\Desktop\pythonProject1\server\projectBlackjack\q_tables\Q" + str(plr_id) + '.npy'
-        q = np.load(qpath)
-        return q
-
+    #Retrieve Player from MySQL database
     @classmethod
     def getPlayer( cls, user_id ):
         query = f"SELECT {cls.TABLE_NAME}.id AS p_id, name, avatar, skill_lvl, COUNT(wins.player_id) AS wins, COUNT(losses.player_id) AS losses, COUNT(blackjacks.player_id) AS blackjacks, COUNT(busts.player_id) AS busts "
@@ -142,74 +226,17 @@ class Player:
         plr.Q = cls.getQTable(plr.p_id)
         active_players.append(plr)
         return rslt[0] if rslt else False
+    
+    #Save A.I. Q-table array
+    @staticmethod
+    def saveQTable( plr, plr_id ):
+        qpath = r"C:\Users\lukej\OneDrive\Desktop\Coding\CodingDojo\projects\projectBlackjack\q_tables\Q" + str(plr_id)
+        q = np.save(qpath, plr.Q)
+        return q
 
-    def setLearnParams( self ):
-        for ( k, v ) in self.SKILL_LEVELS[str( self.skill_lvl )].items():
-            setattr( self, k, v )
-        self.episodes = self.EPISODES * self.skill_lvl
-        self.epsilon = self.EPSILON
-        self.rewards = []
-
-    def updateRecord( self ):
-        for (k, v) in self.RESULT_CODES.items():
-            setattr(self, k, self.record.count(v))
-        self.wl_ratio = (self.wins + self.blackjacks) / (self.losses + self.busts) if (self.losses + self.busts) else 1
-        self.games_played = len(self.record)
-        for tag in self.DISPLAY_TAGS:
-            self.display_values[tag] = getattr(self, tag)
-
-    def joinGame( self, seat ):
-        self.seat = seat
-        self.cards = []
-        for c in self.GAME_INIT_CATEGORIES:
-            setattr( self, c, 0 )
-        self.updateRecord()
-
-    def updateScore( self ):
-        self.state = self.counter - self.STATE_ADJUSTMENT if self.counter - self.STATE_ADJUSTMENT < self.OVER_STATE else self.OVER_STATE
-        self.counter = sum([card.point_val for card in self.cards])
-        if self.counter > self.MAX_SCORE:
-            self.out = True
-            self.result = 2
-            self.next_state = self.OVER_STATE
-            return 1
-        elif self.counter == self.MAX_SCORE - self.STATE_ADJUSTMENT:
-            self.result = 4
-        self.next_state = self.counter - self.STATE_MIN
-        return 0 if not self.out else 1
-
-    def updateSelf( self, action=None, rslt=None ):
-        output = self.updateScore()
-        if action is not None:
-            self.action = action
-            self.learn()
-        if rslt is not None:
-            self.result = rslt if self.result is 0 else self.result
-            self.learn()
-            self.record.append( self.result )
-            self.updateRecord()
-        self.state = self.next_state
-        return output
-
-    def giveReward( self ):
-        if self.result is 0:
-            self.reward = self.next_state
-        else:
-            self.reward = self.RESULT_REWARDS[str(self.result)]
-        self.rewards.append( self.reward )
-
-    def learn( self ):
-        self.giveReward()
-        self.Q[self.state, self.action] = self.Q[self.state, self.action] + self.l_rate * (self.reward + self.gamma * np.max(self.Q[self.next_state, :]) - self.Q[self.state, self.action])
-        self.epsilon -= self.EPSILON_DECAY
-        self.reward = 0
-
-    def move( self, user_move=None ):
-        if user_move is None:
-            if np.random.uniform( 0, 1 ) < self.epsilon:
-                action = random.choice( self.ACTIONS )
-            else:
-                action = np.argmax( self.Q[self.state, :] )
-        else:
-            action = user_move
-        return action
+    #Retrieve A.I. Q-table array
+    @staticmethod
+    def getQTable( plr_id ):
+        qpath = r"C:\Users\lukej\OneDrive\Desktop\Coding\CodingDojo\projects\projectBlackjack\q_tables\Q" + str(plr_id) + '.npy'
+        q = np.load(qpath)
+        return q

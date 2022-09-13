@@ -7,14 +7,20 @@ bcrypt = Bcrypt(app)
 
 class User:
     
+    # MySQL
     TABLE_NAME = 'users'
     PLAYER_TABLE_NAME = Player.TABLE_NAME
+    
+    # User attributes
     ATTR_TAGS = ['email','password']
+    
+    # Validation params
     NAME_LENGTH = 3
     PASSWORD_LENGTH = 8
     EMAIL_REGEX = re.compile(r'^[a-zA-Z0-9.+_-]+@[a-zA-Z0-9._-]+\.[a-zA-Z]+$')
     PASSWORD_REGEX = re.compile(r'^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$%^&*-])')
     
+    # Constructor
     def __init__(self, data) -> None:
         self.id = data['id']
         for tag in self.ATTR_TAGS:
@@ -22,6 +28,7 @@ class User:
         if 'player_id' in data:
             self.player_id = data['player_id']
 
+    # Retrieve all users
     @classmethod
     def getAllUsers(cls):
         query = f'SELECT * FROM {cls.TABLE_NAME};'
@@ -31,6 +38,7 @@ class User:
         user = [cls(user) for user in rslt]
         return user
 
+    # Retrieve one user
     @classmethod
     def getUser(cls, user_data=None, id=False):
         query = f'SELECT * FROM {cls.TABLE_NAME} WHERE '
@@ -38,6 +46,18 @@ class User:
         rslt = connectToMySQL(DATABASE).query_db(query, user_data)
         return cls(rslt[0]) if rslt else False
 
+    # Validate input data and return any error messages
+    @staticmethod
+    def flashCheck(data, data_dict):
+        errors = []
+        for (k, v) in data_dict.items():
+            if not data[k] or data[k] == '|':
+                errors.append({v[1] : 'This field is required.'})
+            elif not all(v):
+                errors.append({v[1] : v[0]})
+        return errors
+
+    # Validate login attempt
     @classmethod
     def validateLogin(cls, creds):
         user_data = {
@@ -63,6 +83,7 @@ class User:
             }
         return user_data
 
+    # Validate registration attempt
     @classmethod
     def validateRegist(cls, regist_info):
         regist_info_dict = {
@@ -86,6 +107,25 @@ class User:
         }
         return cls.flashCheck(regist_info, regist_info_dict)
 
+    # Create new user row in MySQL DB
+    @classmethod
+    def createNewUser(cls, user_info):
+        user_data = {
+            'email' : user_info['email'],
+            'password': bcrypt.generate_password_hash(user_info['password'])
+        }
+        query = f"INSERT INTO {cls.TABLE_NAME}( {', '.join(cls.ATTR_TAGS)} ) "
+        cols = []
+        for tag in cls.ATTR_TAGS:
+            cols.append( f'%({tag})s' )
+        cols = ', '.join(cols)
+        query += f'VALUES( {cols} );'
+        user_info['id'] = connectToMySQL(DATABASE).query_db(query, user_data)
+        new_player = Player.createPlayer(name=user_info['name'], user_id=user_info['id'])
+        new_user = cls(user_info)
+        return new_user
+    
+    # Register new user utilizing validateUser + createNewUser methods
     @classmethod
     def registerNewUser(cls, regist_info):
         user_data = {
@@ -112,23 +152,7 @@ class User:
             }
         return user_data
 
-    @classmethod
-    def createNewUser(cls, user_info):
-        user_data = {
-            'email' : user_info['email'],
-            'password': bcrypt.generate_password_hash(user_info['password'])
-        }
-        query = f"INSERT INTO {cls.TABLE_NAME}( {', '.join(cls.ATTR_TAGS)} ) "
-        cols = []
-        for tag in cls.ATTR_TAGS:
-            cols.append( f'%({tag})s' )
-        cols = ', '.join(cols)
-        query += f'VALUES( {cols} );'
-        user_info['id'] = connectToMySQL(DATABASE).query_db(query, user_data)
-        new_player = Player.createPlayer(name=user_info['name'], user_id=user_info['id'])
-        new_user = cls(user_info)
-        return new_user
-    
+    # Edit existing user
     @classmethod
     def editUser(cls, new_info, id):
         new_info_dict = {
@@ -165,20 +189,3 @@ class User:
         query += f'WHERE id = {id};'
         print(query)
         rslt = connectToMySQL(DATABASE).query_db(query, new_info)
-
-    @classmethod
-    def subscribeUser(cls, user_id, item_id):
-        query = f"INSERT INTO {cls.MTM_TABLE_NAME} ( users_id, magazines_id )"
-        query += f'VALUES ( {user_id}, {item_id} );'
-        rslt = connectToMySQL(DATABASE).query_db(query)
-        return rslt
-
-    @staticmethod
-    def flashCheck(data, data_dict):
-        invalidity = []
-        for (k, v) in data_dict.items():
-            if not data[k] or data[k] == '|':
-                invalidity.append({v[1] : 'This field is required.'})
-            elif not all(v):
-                invalidity.append({v[1] : v[0]})
-        return invalidity
