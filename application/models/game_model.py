@@ -29,7 +29,7 @@ class Game:
         self.players.extend( random.sample(training_dummies, self.num_of_players - 1) )
         random.shuffle( self.players )
         for i in range( len(self.players) ) :
-            self.players[i].joinGame( seat=i+1 )
+            self.players[i].joinGame( seat=i )
 
     # Returns info about all players in game
     def showPlayers( self ):
@@ -43,7 +43,7 @@ class Game:
         self.players_out = 0
         rv = self.dealCards( self.players*self.STARTING_HAND, initDeal=True )
         print(rv)
-        return rv
+        return {'cards': rv}
 
     # Deals 2 cards to each player on 1st deal, then 1 card on any subsequent deal
     def dealCards( self, target, initDeal=False ):
@@ -53,7 +53,7 @@ class Game:
             player.updateSelf()
         cards = {}
         for player in self.players:
-            cards[str(player.seat)] = [c.info for c in player.cards[1:]] if player != self.pl1 and initDeal else [c.info for c in player.cards]
+            cards[str(player.seat)] = [c.info for c in player.cards]
         return cards
 
     # Forces each active player to make their move
@@ -65,13 +65,13 @@ class Game:
             print("turn " + str(self.turn + 1))
             print(current_player.out)
             if not current_player.out:
-                if self.turn + 1 == self.pl1.seat:
+                if self.turn == self.pl1.seat:
                     print("took p1 turn")
                     card = self.takeTurn(current_player, pl1_move)
                 else:
                     card = self.takeTurn(current_player)
                 if card:
-                    cards[str(self.turn + 1)] = card
+                    cards[str(self.turn)] = card
             self.turn = self.turn + 1
         if len(cards.keys()) == 1:
             cards['game_over'] = True

@@ -123,7 +123,7 @@ class Player:
     def updateRecord( self ):
         for (k, v) in self.RESULT_CODES.items():
             setattr(self, k, self.record.count(v))
-        self.wl_ratio = (self.wins + self.blackjacks) / (self.losses + self.busts) if (self.losses + self.busts) else 1
+        self.wl_ratio = '%.2g' %((self.wins + self.blackjacks) / (self.losses + self.busts)) if (self.losses + self.busts) else 1
         self.games_played = len(self.record)
         for tag in self.DISPLAY_TAGS:
             self.display_values[tag] = getattr(self, tag)

@@ -49,12 +49,12 @@ class User:
     # Validate input data and return any error messages
     @staticmethod
     def flashCheck(data, data_dict):
-        errors = []
+        errors = {}
         for (k, v) in data_dict.items():
             if not data[k] or data[k] == '|':
-                errors.append({v[1] : 'This field is required.'})
+                errors[v[1]] = 'This field is required.'
             elif not all(v):
-                errors.append({v[1] : v[0]})
+                errors[v[1]] = v[0]
         return errors
 
     # Validate login attempt
@@ -73,7 +73,10 @@ class User:
             return user_data
         current_user = cls.getUser(creds)
         if not current_user or not bcrypt.check_password_hash(current_user.password, creds['password']):
-            user_data['flash_msgs'] = [{'error_login_creds':'Invalid credentials'}]
+            if 'flash_msgs' not in user_data:
+                user_data['flash_msgs'] = {'error_login_creds':'Invalid credentials'}
+            else:
+                user_data['flash_msgs']['error_login_creds'] = 'Invalid credentials'
             return user_data
         current_player = Player.getPlayer(current_user.id)
         user_data['logged_user'] = {
@@ -139,9 +142,10 @@ class User:
         query += 'WHERE email = %(email)s;'
         rslt = connectToMySQL(DATABASE).query_db(query, regist_info)
         if rslt:
-            user_data['flash_msgs'] = [{
-                'error_reg_email' : 'An account with this email has already been registered. Please try another.'
-            }]
+            if 'flash_msgs' not in user_data:
+                user_data['flash_msgs'] = {'error_reg_email': 'An account with this email has already been registered. Please try another.'}
+            else:
+                user_data['flash_msgs']['error_reg_email'] = 'An account with this email has already been registered. Please try another.'
             return user_data
         new_user = cls.createNewUser(regist_info)
         current_player = Player.getPlayer(new_user.id)
