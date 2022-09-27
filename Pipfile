@@ -10,6 +10,7 @@ pymysql = "*"
 numpy = "*"
 flask-cors = "*"
 names = "*"
+flask-socketio = "*"
 
 [dev-packages]
 

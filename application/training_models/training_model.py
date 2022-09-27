@@ -12,7 +12,7 @@ ENEMY_BATCH_SIZE = 20
 def createEnemies():
     for i in range(ENEMY_BATCH_SIZE):
         e = Player.createPlayer(names.get_full_name())
-        Player.getPlayer(e)
+        Player.get_player(e)
     training_bots = [player for player in active_players if player.user_id == 0]
     for bot in training_bots:
         train(bot)

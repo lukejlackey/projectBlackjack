@@ -59,7 +59,7 @@ class User:
 
     # Validate login attempt
     @classmethod
-    def validateLogin(cls, creds):
+    def validate_login(cls, creds):
         user_data = {
             'logged_user' : False,
         }
@@ -78,7 +78,7 @@ class User:
             else:
                 user_data['flash_msgs']['error_login_creds'] = 'Invalid credentials'
             return user_data
-        current_player = Player.getPlayer(current_user.id)
+        current_player = Player.get_player(current_user.id)
         user_data['logged_user'] = {
             'id' : current_user.id,
             'email' : current_user.email,
@@ -130,7 +130,7 @@ class User:
     
     # Register new user utilizing validateUser + createNewUser methods
     @classmethod
-    def registerNewUser(cls, regist_info):
+    def register_new_user(cls, regist_info):
         user_data = {
             'logged_user' : False
         }
@@ -148,7 +148,7 @@ class User:
                 user_data['flash_msgs']['error_reg_email'] = 'An account with this email has already been registered. Please try another.'
             return user_data
         new_user = cls.createNewUser(regist_info)
-        current_player = Player.getPlayer(new_user.id)
+        current_player = Player.get_player(new_user.id)
         user_data['logged_user'] = {
             'id' : new_user.id,
             'email' : new_user.email,

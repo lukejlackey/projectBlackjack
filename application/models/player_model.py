@@ -9,15 +9,21 @@ class Player:
 
     # MySQL
     TABLE_NAME = 'players'
+    Q_SQL_TABLE = 'q_tables'
     WIN_TABLE = 'games_have_winners'
     LOSS_TABLE = 'games_have_losers'
     BLACKJACK_TABLE = 'games_have_blackjacks'
     BUST_TABLE = 'games_have_busts'
-    Q_SQL_TABLE = 'q_tables'
+    RESULT_TABLES = {
+        'wins' : WIN_TABLE,
+        'losses' : LOSS_TABLE,
+        'blackjacks' : BLACKJACK_TABLE,
+        'busts' : BUST_TABLE
+    }
     
     #Player attributes
     ATTR_TAGS = ['name', 'avatar', 'skill_lvl', 'user_id']
-    DISPLAY_TAGS = ['seat', 'user_id', 'name', 'avatar', 'skill_lvl', 'wins', 'losses', 'blackjacks', 'busts', 'wl_ratio']
+    DISPLAY_TAGS = ['seat', 'cards', 'user_id', 'name', 'avatar', 'skill_lvl', 'wins', 'losses', 'blackjacks', 'busts', 'wl_ratio']
     
     #On new game reset
     GAME_INIT_CATEGORIES = ['out', 'state', 'action', 'counter', 'next_state', 'result', 'reward']
@@ -98,43 +104,48 @@ class Player:
     }
 
     #Constructor
-    def __init__( self, p_id=0, user_id=0, name=False, avatar=0, q_table=deepcopy(NEW_Q_TABLE) , skill_lvl=False, wins=0, losses=0, busts=0, blackjacks=0):
-        self.p_id = p_id
-        self.user_id = user_id
-        self.name = name if name else names.get_full_name()
-        self.avatar = avatar
-        self.Q = q_table
-        self.skill_lvl = skill_lvl if skill_lvl else random.randint( 1, 9 )
+    def __init__( self, p_id=None, user_id=None, name=None, avatar=None, q_table=None, skill_lvl=None, wins=0, losses=0, busts=0, blackjacks=0):
+        self.p_id = p_id if p_id is not None else 0
+        self.user_id = user_id if user_id is not None else -1
+        self.name = name if name is not None else names.get_full_name()
+        self.avatar = avatar if avatar is not None else 0
+        self.Q = q_table if q_table is not None else deepcopy(self.NEW_Q_TABLE)
+        self.skill_lvl = skill_lvl if skill_lvl is not None else random.randint( 1, 9 )
         self.record = [1] * int(losses) + [2] * int(busts) + [3] * int(wins) + [4] * int(blackjacks)
         self.display_values = {}
+        self.cards = []
         self.seat = 0
-        self.setLearnParams()
-        self.updateRecord()
+        self.set_learn_params()
+        self.update_record()
 
     # Set A.I. learning parameters according to skill level
-    def setLearnParams( self ):
+    def set_learn_params( self ):
         for ( k, v ) in self.SKILL_LEVELS[str( self.skill_lvl )].items():
             setattr( self, k, v )
         self.episodes = self.EPISODES * self.skill_lvl
         self.epsilon = self.EPSILON
         self.rewards = []
 
-    # Update record after game
-    def updateRecord( self ):
+    # Updates player record
+    def update_record( self ):
         for (k, v) in self.RESULT_CODES.items():
             setattr(self, k, self.record.count(v))
         self.wl_ratio = '%.2g' %((self.wins + self.blackjacks) / (self.losses + self.busts)) if (self.losses + self.busts) else 1
         self.games_played = len(self.record)
+        self.update_display_values()
+
+    # Updates player display values for front end display
+    def update_display_values( self ):
         for tag in self.DISPLAY_TAGS:
             self.display_values[tag] = getattr(self, tag)
 
     # Join new game
-    def joinGame( self, seat ):
+    def join_game( self, seat ):
         self.seat = seat
         self.cards = []
         for c in self.GAME_INIT_CATEGORIES:
             setattr( self, c, 0 )
-        self.updateRecord()
+        self.update_record()
 
     # Allow A.I. to make move if not controlled by player
     def move( self, user_move=None ):
@@ -157,6 +168,7 @@ class Player:
             self.next_state = self.OVER_STATE
             return 1
         elif self.counter == self.MAX_SCORE - self.STATE_ADJUSTMENT:
+            self.out = True
             self.result = 4
         self.next_state = self.counter - self.STATE_MIN
         return 0 if not self.out else 1
@@ -167,11 +179,12 @@ class Player:
         if action is not None:
             self.action = action
             self.learn()
+            self.update_display_values()
         if rslt is not None:
             self.result = rslt if self.result is 0 else self.result
             self.learn()
             self.record.append( self.result )
-            self.updateRecord()
+            self.update_record()
         self.state = self.next_state
         return output
 
@@ -211,7 +224,7 @@ class Player:
 
     #Retrieve Player from MySQL database
     @classmethod
-    def getPlayer( cls, user_id ):
+    def get_player( cls, user_id ):
         query = f"SELECT {cls.TABLE_NAME}.id AS p_id, name, avatar, skill_lvl, COUNT(wins.player_id) AS wins, COUNT(losses.player_id) AS losses, COUNT(blackjacks.player_id) AS blackjacks, COUNT(busts.player_id) AS busts "
         query += f"FROM {cls.TABLE_NAME} "
         query += f"LEFT JOIN {cls.WIN_TABLE} AS wins ON {cls.TABLE_NAME}.id = wins.player_id "
