@@ -1,0 +1,6 @@
+q_tables/
+
+.env
+
+Pipfile
+Pipfile.lock
