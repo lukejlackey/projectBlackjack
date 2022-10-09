@@ -51,7 +51,7 @@ class User:
     def flashCheck(data, data_dict):
         errors = {}
         for (k, v) in data_dict.items():
-            if not data[k] or data[k] == '|':
+            if not data[k]:
                 errors[v[1]] = 'This field is required.'
             elif not all(v):
                 errors[v[1]] = v[0]

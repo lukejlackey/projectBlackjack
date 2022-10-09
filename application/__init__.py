@@ -19,7 +19,7 @@ socketio = SocketIO(app, manage_session=False)
 
 DATABASE = os.environ.get("DATABASE")
 
-active_players = []
+active_players = [] 
 players_in_queue = []
 ai_players = []
 active_users = {}

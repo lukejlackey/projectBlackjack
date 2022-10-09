@@ -1,6 +1,5 @@
 q_tables/
+venv/
 
 .env
 
-Pipfile
-Pipfile.lock

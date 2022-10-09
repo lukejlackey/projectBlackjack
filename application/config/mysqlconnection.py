@@ -1,8 +1,13 @@
 import pymysql.cursors
+import os
+from os.path import join, dirname
+from dotenv import load_dotenv
+dotenv_path = join(dirname(__file__), '.env')
+load_dotenv(dotenv_path)
 
 class MySQLConnection:
     def __init__(self, db):
-        connection = pymysql.connect(host = 'database-1.ceblmixhdeje.us-east-1.rds.amazonaws.com',
+        connection = pymysql.connect(host = os.environ.get("SCHEMA"),
                                     user = 'root', 
                                     password = 'rootroot', 
                                     db = db,
