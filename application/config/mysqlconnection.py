@@ -1,3 +1,4 @@
+import logging
 import pymysql.cursors
 import os
 from os.path import join, dirname
@@ -8,8 +9,8 @@ load_dotenv(dotenv_path)
 class MySQLConnection:
     def __init__(self, db):
         connection = pymysql.connect(host = os.environ.get("SCHEMA"),
-                                    user = 'root', 
-                                    password = 'rootroot', 
+                                    user = os.environ.get("DB_USER"), 
+                                    password = os.environ.get("DB_PASSWORD"), 
                                     db = db,
                                     charset = 'utf8mb4',
                                     cursorclass = pymysql.cursors.DictCursor,
@@ -19,8 +20,7 @@ class MySQLConnection:
         with self.connection.cursor() as cursor:
             try:
                 query = cursor.mogrify(query, data)
-                print("Running Query:", query)
-     
+                logging.debug(f'Running Query: {query}')
                 cursor.execute(query, data)
                 if query.lower().find("insert") >= 0:
                     self.connection.commit()
@@ -31,7 +31,7 @@ class MySQLConnection:
                 else:
                     self.connection.commit()
             except Exception as e:
-                print("Something went wrong", e)
+                logging.error(f'Something went wrong {e}')
                 return False
             finally:
                 self.connection.close() 

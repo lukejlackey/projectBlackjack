@@ -10,6 +10,4 @@ class Card:
             'point_val' : point_val,
             'string_val' : string_val
         }
-
-    def card_info(self):
-        print(f"{self.string_val} of {self.suit} : {self.point_val} points")
+        self.info_str = f"{self.string_val} of {self.suit} : {self.point_val} points"

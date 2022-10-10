@@ -1,13 +1,11 @@
-from application import app, active_games, active_players, socketio
+from application import app, socketio
+from application.classes.gamesSLL import active_games
+from application.classes.playersBST import active_players, idle_players, ai_players
 from application.models.game_model import Game
 from application.models.player_model import Player
 from flask import json, jsonify, request
 from flask_cors import cross_origin
 from flask_socketio import join_room, leave_room
-
-def find_active_players_with_id(user_id):
-    matches = list(filter(lambda player: player.user_id == int(user_id), active_players))
-    return matches
 
 # @app.route('/play/<int:user_id>', methods=['POST'])
 # @cross_origin(origins="*", headers=['Content-type'])
@@ -54,11 +52,9 @@ def find_active_players_with_id(user_id):
 @app.route('/play/<int:user_id>', methods=['POST'])
 @cross_origin(origins="*", headers=['Content-type'])
 def create_game(user_id):
-    user_player = find_active_players_with_id(user_id)
+    user_player = idle_players.search_for_player(user_id)
     if not user_player:
-        plyr = Player.get_player(user_id=user_id)
-        user_player = find_active_players_with_id(user_id)
-    user_player = user_player[0]
+        user_player = Player.get_player(user_id=user_id)
     new_game = Game()
     new_game.add_player(user_player)
     return jsonify({
@@ -71,11 +67,9 @@ def join_game(request):
     response = json.loads(request.data.decode( 'UTF-8' ))
     user_id = response['userId']
     game_id = response['gameId']
-    user_player = find_active_players_with_id(user_id)
+    user_player = idle_players.search_for_player(user_id)
     if not user_player:
-        plyr = Player.get_player(user_id=user_id)
-        user_player = find_active_players_with_id(user_id)
-    user_player = user_player[0]
+        user_player = Player.get_player(user_id=user_id)
     game = active_games.find_open_game()
     if not game:
         game = active_games.add_game_to_end(Game())
@@ -89,11 +83,9 @@ def make_move(request):
     user_id = response['userId']
     user_move = response['userMove']
     game_id = response['gameId']
-    user_player = find_active_players_with_id(user_id)
+    user_player = idle_players.search_for_player(user_id)
     if not user_player:
-        plyr = Player.get_player(user_id=user_id)
-        user_player = find_active_players_with_id(user_id)
-    user_player = user_player[0]
+        user_player = Player.get_player(user_id=user_id)
     game = Game.find_game_by_game_id(game_id)
     game_data = game.take_turn(user_player, user_move)
     if type(game_data) == int:

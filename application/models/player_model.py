@@ -1,4 +1,6 @@
-from application import app, DATABASE, active_players
+import logging
+from application import DATABASE
+from application.classes.playersBST import idle_players, join_active_players, ai_players
 from application.config.mysqlconnection import connectToMySQL
 from copy import deepcopy
 import numpy as np
@@ -114,7 +116,7 @@ class Player:
         self.record = [1] * int(losses) + [2] * int(busts) + [3] * int(wins) + [4] * int(blackjacks)
         self.display_values = {}
         self.cards = []
-        self.seat = 0
+        self.seat = None
         self.set_learn_params()
         self.update_record()
 
@@ -141,6 +143,7 @@ class Player:
 
     # Join new game
     def join_game( self, seat ):
+        join_active_players(self)
         self.seat = seat
         self.cards = []
         for c in self.GAME_INIT_CATEGORIES:
@@ -216,10 +219,9 @@ class Player:
             cols.append( f'%({tag})s' )
         cols = ', '.join(cols)
         query += f'VALUES( {cols} );'
-        print(query)
         rslt = connectToMySQL(DATABASE).query_db(query, player_data)
-        print(rslt)
         cls.saveQTable( new_player, rslt)
+        idle_players.add_player(new_player)
         return rslt
 
     #Retrieve Player from MySQL database
@@ -237,8 +239,28 @@ class Player:
         plr = cls(**rslt[0])
         plr.user_id = user_id
         plr.Q = cls.getQTable(plr.p_id)
-        active_players.append(plr)
+        idle_players.add_player(plr)
         return rslt[0] if rslt else False
+    
+    #Retrieve n random players from MySQL database
+    @classmethod
+    def get_random_players( cls, n ):
+        query = f"SELECT {cls.TABLE_NAME}.id AS p_id, name, avatar, skill_lvl, COUNT(wins.player_id) AS wins, COUNT(losses.player_id) AS losses, COUNT(blackjacks.player_id) AS blackjacks, COUNT(busts.player_id) AS busts "
+        query += f"FROM {cls.TABLE_NAME} "
+        query += f"LEFT JOIN {cls.WIN_TABLE} AS wins ON {cls.TABLE_NAME}.id = wins.player_id "
+        query += f"LEFT JOIN {cls.LOSS_TABLE} AS losses ON {cls.TABLE_NAME}.id = losses.player_id "
+        query += f"LEFT JOIN {cls.BLACKJACK_TABLE} AS blackjacks ON {cls.TABLE_NAME}.id = blackjacks.player_id "
+        query += f"LEFT JOIN {cls.BUST_TABLE} AS busts ON {cls.TABLE_NAME}.id = busts.player_id "
+        query += 'ORDER BY RAND() '
+        query += f'LIMIT {n};'
+        rslt = connectToMySQL(DATABASE).query_db(query)
+        if rslt:
+            players = [cls(**plr) for plr in rslt]
+            for plr in players:
+                plr.Q = cls.getQTable(plr.p_id)
+                ai_players.add_player(plr)
+            return players
+        return False
     
     #Save A.I. Q-table array
     @staticmethod
